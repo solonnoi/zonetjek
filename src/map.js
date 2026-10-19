@@ -93,13 +93,6 @@ const MapView = (function () {
   /* ---------- Static scaffolding ---------- */
   function buildStatic() {
     svg.innerHTML = [
-      '<defs>',
-      '<filter id="goo" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">',
-      '<feGaussianBlur in="SourceGraphic" stdDeviation="13" result="blur"/>',
-      '<feColorMatrix in="blur" type="matrix" result="goo"',
-      ' values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11"/>',
-      '</filter>',
-      '</defs>',
       '<g id="layer-zones"></g>',
       '<g id="layer-lines"></g>',
       '<g id="layer-route"></g>',
@@ -109,27 +102,37 @@ const MapView = (function () {
   }
 
   /* ---------- Layers ---------- */
-  function renderZones(view) {
-    const ids = Object.keys(ZONES);
-    const reach = view.ringByZone || {};
-    /* Unreachable land underneath, then reachable zones outermost-first so the
-       darker inner zones paint on top of the lighter ones. */
-    const order = ids.filter(function (z) { return reach[z] === undefined; })
-      .concat(ids.filter(function (z) { return reach[z] !== undefined; })
-        .sort(function (a, b) { return reach[b] - reach[a]; }));
+  /* Zone outlines are geometry, not state: they depend only on where the
+     stops are, so they are contoured once and then only recoloured. This is
+     what used to be a per-frame SVG filter over hundreds of circles. */
+  let zonePathsDrawn = false;
 
-    const html = order.map(function (z) {
-      const ring = reach[z];
-      const fill = ring === undefined
-        ? "var(--land)"
-        : "var(" + RING_VARS[Math.min(ring, RING_VARS.length - 1)] + ")";
-      const circles = zonePoints(z).map(function (p) {
-        return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + HALO_R + '"/>';
-      }).join("");
-      return '<g filter="url(#goo)" fill="' + fill + '">' + circles + '</g>';
+  function drawZoneShapes() {
+    const layer = svg.querySelector("#layer-zones");
+    /* Fixed order, outermost ring first, so inner zones always paint on top
+       and the order never has to change when reachability does. */
+    const order = Object.keys(ZONES).sort(function (a, b) {
+      return ZONES[b].ring - ZONES[a].ring;
+    });
+    layer.innerHTML = order.map(function (z) {
+      const d = blobPath(zonePoints(z), HALO_R);
+      return '<path class="zone-area" data-zone="' + z + '" fill-rule="evenodd" d="' + d + '"/>';
     }).join("");
+    zonePathsDrawn = true;
+  }
 
-    svg.querySelector("#layer-zones").innerHTML = html;
+  function renderZones(view) {
+    if (!zonePathsDrawn) drawZoneShapes();
+    const reach = view.ringByZone || {};
+    const layer = svg.querySelector("#layer-zones");
+    Object.keys(ZONES).forEach(function (z) {
+      const node = layer.querySelector('[data-zone="' + z + '"]');
+      if (!node) return;
+      const ring = reach[z];
+      node.setAttribute("fill", ring === undefined
+        ? "var(--land)"
+        : "var(" + RING_VARS[Math.min(ring, RING_VARS.length - 1)] + ")");
+    });
   }
 
   function renderLines(view) {
@@ -255,63 +258,157 @@ const MapView = (function () {
   }
 
   function zoomBy(factor, centre) {
-    const c = centre || { x: vb.x + vb.w / 2, y: vb.y + vb.h / 2 };
-    const w = Math.max(220, Math.min(1500, vb.w * factor));
-    const h = w * (vb.h / vb.w);
-    vb = {
-      x: c.x - (c.x - vb.x) * (w / vb.w),
-      y: c.y - (c.y - vb.y) * (h / vb.h),
-      w: w,
-      h: h
-    };
+    scaleAbout(factor, centre || { x: vb.x + vb.w / 2, y: vb.y + vb.h / 2 });
     setViewBox();
   }
 
   /* ---------- Interaction ---------- */
-  function bind() {
-    let dragging = false, moved = 0, last = null;
-
-    svg.addEventListener("pointerdown", function (e) {
-      dragging = true;
-      moved = 0;
-      last = { x: e.clientX, y: e.clientY };
-      svg.classList.add("dragging");
-      svg.setPointerCapture(e.pointerId);
-    });
-
-    svg.addEventListener("pointermove", function (e) {
-      if (!dragging) return;
-      const tr = transform();
-      const dx = (e.clientX - last.x) / tr.s;
-      const dy = (e.clientY - last.y) / tr.s;
-      moved += Math.abs(e.clientX - last.x) + Math.abs(e.clientY - last.y);
-      last = { x: e.clientX, y: e.clientY };
-      vb.x -= dx;
-      vb.y -= dy;
+  /* Every gesture writes the camera at most once per frame. Pointer events
+     fire faster than the screen refreshes, and without this a drag queued
+     several full redraws per frame. */
+  let framePending = false;
+  function commitCamera() {
+    if (framePending) return;
+    framePending = true;
+    requestAnimationFrame(function () {
+      framePending = false;
       setViewBox();
     });
+  }
 
-    svg.addEventListener("pointerup", function (e) {
-      dragging = false;
-      svg.classList.remove("dragging");
-      /* A press that barely moved is a tap, not a drag. */
-      if (moved < 8) {
-        const hit = document.elementFromPoint(e.clientX, e.clientY);
-        const id = hit && hit.dataset ? hit.dataset.stop : null;
-        if (id && onStopClick) onStopClick(id);
+  function localPoint(e) {
+    const rect = svg.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function clampWidth(w) {
+    return Math.max(160, Math.min(2200, w));
+  }
+
+  /* Scale about a fixed map point, so whatever is under the fingers (or the
+     cursor) stays under them. */
+  function scaleAbout(factor, anchor) {
+    const w = clampWidth(vb.w * factor);
+    const h = w * (vb.h / vb.w);
+    vb = {
+      x: anchor.x - (anchor.x - vb.x) * (w / vb.w),
+      y: anchor.y - (anchor.y - vb.y) * (h / vb.h),
+      w: w,
+      h: h
+    };
+  }
+
+  function bind() {
+    const pointers = new Map();
+    let pan = null;          /* { x, y } last position of the lone pointer */
+    let gesture = null;      /* { dist, mid } baseline of a two-finger pinch */
+    let moved = 0;
+    let lastTap = 0;
+
+    function pinchState() {
+      const pts = Array.from(pointers.values());
+      const dx = pts[0].x - pts[1].x;
+      const dy = pts[0].y - pts[1].y;
+      return {
+        dist: Math.max(1, Math.hypot(dx, dy)),
+        mid: { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
+      };
+    }
+
+    svg.addEventListener("pointerdown", function (e) {
+      /* Throws if the pointer is already gone; never worth failing the gesture. */
+      try { svg.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      pointers.set(e.pointerId, localPoint(e));
+      moved = 0;
+      if (pointers.size === 1) {
+        pan = localPoint(e);
+      } else if (pointers.size === 2) {
+        gesture = pinchState();
+        pan = null;
       }
     });
 
-    svg.addEventListener("pointercancel", function () {
-      dragging = false;
+    svg.addEventListener("pointermove", function (e) {
+      if (!pointers.has(e.pointerId)) return;
+      const at = localPoint(e);
+      pointers.set(e.pointerId, at);
+
+      if (pointers.size >= 2 && gesture) {
+        const next = pinchState();
+        const tr = transform();
+
+        /* Zoom by how much the fingers spread... */
+        scaleAbout(gesture.dist / next.dist, toMap(next.mid.x, next.mid.y));
+
+        /* ...and pan by how far the pair travelled, so a two-finger drag
+           moves the map as well as scaling it. */
+        const after = transform();
+        vb.x -= (next.mid.x - gesture.mid.x) / after.s;
+        vb.y -= (next.mid.y - gesture.mid.y) / after.s;
+
+        moved += Math.abs(next.dist - gesture.dist) +
+          Math.abs(next.mid.x - gesture.mid.x) + Math.abs(next.mid.y - gesture.mid.y);
+        gesture = next;
+        void tr;
+        commitCamera();
+        return;
+      }
+
+      if (!pan) return;
+      const tr = transform();
+      vb.x -= (at.x - pan.x) / tr.s;
+      vb.y -= (at.y - pan.y) / tr.s;
+      moved += Math.abs(at.x - pan.x) + Math.abs(at.y - pan.y);
+      pan = at;
+      svg.classList.add("dragging");
+      commitCamera();
+    });
+
+    function release(e) {
+      const wasSingle = pointers.size === 1;
+      const at = pointers.get(e.pointerId);
+      pointers.delete(e.pointerId);
+      svg.classList.remove("dragging");
+
+      if (pointers.size < 2) gesture = null;
+      if (pointers.size === 1) {
+        /* One finger lifted mid-pinch: carry on panning with the other. */
+        pan = Array.from(pointers.values())[0];
+      } else if (pointers.size === 0) {
+        pan = null;
+      }
+
+      if (!wasSingle || moved >= 10 || !at) return;
+
+      /* A press that barely moved is a tap. Two in quick succession at the
+         same spot zoom in — the usual shortcut when there is no mouse wheel. */
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        lastTap = 0;
+        scaleAbout(0.6, toMap(at.x, at.y));
+        commitCamera();
+        return;
+      }
+      lastTap = now;
+
+      const hit = document.elementFromPoint(e.clientX, e.clientY);
+      const id = hit && hit.dataset ? hit.dataset.stop : null;
+      if (id && onStopClick) onStopClick(id);
+    }
+
+    svg.addEventListener("pointerup", release);
+    svg.addEventListener("pointercancel", function (e) {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) gesture = null;
+      if (pointers.size === 0) pan = null;
       svg.classList.remove("dragging");
     });
 
     svg.addEventListener("wheel", function (e) {
       e.preventDefault();
-      const rect = svg.getBoundingClientRect();
-      const at = toMap(e.clientX - rect.left, e.clientY - rect.top);
-      zoomBy(e.deltaY > 0 ? 1.12 : 0.89, at);
+      const at = localPoint(e);
+      scaleAbout(e.deltaY > 0 ? 1.12 : 0.89, toMap(at.x, at.y));
+      commitCamera();
     }, { passive: false });
 
     window.addEventListener("resize", function () {
