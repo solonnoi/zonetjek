@@ -1,0 +1,53 @@
+{
+  "$description": "Zonetjek design tokens, mirrored from styles.css. W3C Design Tokens format — readable by Tokens Studio and most Figma variable importers.",
+  "color": {
+    "paper":    { "$type": "color", "$value": "#FCFBF8", "$description": "Cards" },
+    "bg":       { "$type": "color", "$value": "#F3F1EC", "$description": "Background" },
+    "land":     { "$type": "color", "$value": "#EAE7E0", "$description": "Land halo, unreachable zones" },
+    "ink":      { "$type": "color", "$value": "#1F2633" },
+    "muted":    { "$type": "color", "$value": "#6B7280" },
+    "muted-2":  { "$type": "color", "$value": "#B0B5BD" },
+    "ring": {
+      "0": { "$type": "color", "$value": "#4FC394", "$description": "Start zone" },
+      "1": { "$type": "color", "$value": "#8ED8B3" },
+      "2": { "$type": "color", "$value": "#B7E6CB" },
+      "3": { "$type": "color", "$value": "#D5F0DF" },
+      "4": { "$type": "color", "$value": "#E4F5EA", "$description": "Outermost reachable ring" }
+    },
+    "on-ring":  { "$type": "color", "$value": "#1E4D3A", "$description": "Text on zone fills" }
+  },
+  "radius": {
+    "card":  { "$type": "dimension", "$value": "20px" },
+    "input": { "$type": "dimension", "$value": "14px" },
+    "pill":  { "$type": "dimension", "$value": "999px" },
+    "sheet": { "$type": "dimension", "$value": "24px", "$description": "Top corners only" }
+  },
+  "size": {
+    "tap":    { "$type": "dimension", "$value": "44px", "$description": "Minimum touch target" },
+    "gutter": { "$type": "dimension", "$value": "16px", "$description": "24px on desktop" }
+  },
+  "shadow": {
+    "default": {
+      "$type": "shadow",
+      "$value": [
+        { "offsetX": "0px", "offsetY": "1px", "blur": "2px",  "spread": "0px", "color": "#1F263314" },
+        { "offsetX": "0px", "offsetY": "8px", "blur": "24px", "spread": "0px", "color": "#1F26331A" }
+      ]
+    },
+    "sm": {
+      "$type": "shadow",
+      "$value": [
+        { "offsetX": "0px", "offsetY": "1px", "blur": "2px", "spread": "0px", "color": "#1F263314" },
+        { "offsetX": "0px", "offsetY": "2px", "blur": "8px", "spread": "0px", "color": "#1F26330F" }
+      ]
+    }
+  },
+  "font": {
+    "display": { "$type": "fontFamily", "$value": "Bricolage Grotesque", "$description": "Headings, numbers, zone labels — 600 / 800" },
+    "ui":      { "$type": "fontFamily", "$value": "Figtree", "$description": "UI and body — 400 to 700" }
+  },
+  "frame": {
+    "mobile":  { "$type": "dimension", "$value": "390x844" },
+    "desktop": { "$type": "dimension", "$value": "1440x900" }
+  }
+}

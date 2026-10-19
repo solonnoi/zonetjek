@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zonetjek</title>
+<meta name="description" content="See which Copenhagen stops you can reach on a DOT zone ticket.">
+<meta name="theme-color" content="#F3F1EC">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <div class="map-wrap">
+    <svg id="map" preserveAspectRatio="xMidYMid slice" aria-label="Zone map of Copenhagen public transport" role="img"></svg>
+    <div class="map-overlay" id="map-overlay"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+        <circle cx="13" cy="13" r="12.25" fill="#B7E6CB"/>
+        <circle cx="13" cy="13" r="8" fill="#4FC394"/>
+        <circle cx="13" cy="13" r="3.5" fill="#1F2633"/>
+      </svg>
+      <span class="wordmark">Zonetjek</span>
+    </div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <span class="sep" aria-hidden="true">|</span>
+      <button type="button" data-lang="da" aria-pressed="false">DA</button>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="card">
+      <div class="segmented" role="tablist">
+        <button type="button" role="tab" id="tab-reach" aria-controls="pane-reach"
+                aria-selected="true" data-tab="reach" data-i18n="tab.reach">Where can I go?</button>
+        <button type="button" role="tab" id="tab-count" aria-controls="pane-count"
+                aria-selected="false" data-tab="count" data-i18n="tab.count">How many zones?</button>
+      </div>
+
+      <!-- Tab 1 -->
+      <div class="tabpane is-active" id="pane-reach" role="tabpanel" aria-labelledby="tab-reach">
+        <div class="field-row">
+          <div class="field" data-field="from">
+            <label class="field-label" for="input-from" data-i18n="from">From</label>
+            <div class="field-input">
+              <span class="icon" aria-hidden="true">
+                <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                  <circle cx="9" cy="9" r="6"/><path d="M13.5 13.5 L17 17"/>
+                </svg>
+              </span>
+              <input id="input-from" type="text" autocomplete="off" spellcheck="false"
+                     role="combobox" aria-expanded="false" aria-autocomplete="list"
+                     aria-controls="results-from"
+                     data-i18n-ph="search.ph" placeholder="Search station or stop">
+              <button type="button" class="field-clear" data-clear="from" aria-label="Clear">
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M5 5l10 10M15 5L5 15"/>
+                </svg>
+              </button>
+            </div>
+            <ul class="results" id="results-from" role="listbox"></ul>
+          </div>
+          <div class="stepper-wrap">
+            <span class="field-label" id="ticket-label" data-i18n="ticket">Ticket</span>
+            <div class="stepper" role="group" aria-labelledby="ticket-label">
+              <button type="button" id="ticket-minus" aria-label="Fewer zones">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4.5 10h11"/></svg>
+              </button>
+              <output id="ticket-value" aria-live="polite">2</output>
+              <button type="button" id="ticket-plus" aria-label="More zones">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 4.5v11M4.5 10h11"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2 -->
+      <div class="tabpane" id="pane-count" role="tabpanel" aria-labelledby="tab-count">
+        <div class="stack">
+          <div class="field" data-field="from2">
+            <label class="field-label" for="input-from2" data-i18n="from">From</label>
+            <div class="field-input">
+              <span class="icon" aria-hidden="true">
+                <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                  <circle cx="9" cy="9" r="6"/><path d="M13.5 13.5 L17 17"/>
+                </svg>
+              </span>
+              <input id="input-from2" type="text" autocomplete="off" spellcheck="false"
+                     role="combobox" aria-expanded="false" aria-autocomplete="list"
+                     aria-controls="results-from2"
+                     data-i18n-ph="search.ph" placeholder="Search station or stop">
+            </div>
+            <ul class="results" id="results-from2" role="listbox"></ul>
+          </div>
+          <div class="field" data-field="to">
+            <label class="field-label" for="input-to" data-i18n="to">To</label>
+            <div class="field-input">
+              <span class="icon" aria-hidden="true">
+                <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                  <circle cx="9" cy="9" r="6"/><path d="M13.5 13.5 L17 17"/>
+                </svg>
+              </span>
+              <input id="input-to" type="text" autocomplete="off" spellcheck="false"
+                     role="combobox" aria-expanded="false" aria-autocomplete="list"
+                     aria-controls="results-to"
+                     data-i18n-ph="search.ph" placeholder="Search station or stop">
+            </div>
+            <ul class="results" id="results-to" role="listbox"></ul>
+          </div>
+          <button type="button" class="swap" id="swap" data-i18n-aria="swap" aria-label="Swap from and to">
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 3.5v13M7 16.5 4 13.5M7 16.5 10 13.5M13 16.5v-13M13 3.5 10 6.5M13 3.5 16 6.5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chips" id="chips" role="group" aria-label="Modes"></div>
+  </section>
+
+  <div class="map-controls" id="map-controls">
+    <button type="button" class="map-btn" id="locate" data-i18n-aria="locate" aria-label="Use my location">
+      <span class="locate-icon" aria-hidden="true">
+        <svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="10" cy="10" r="3.2"/>
+          <circle cx="10" cy="10" r="6.6"/>
+          <path d="M10 .9v2.3M10 16.8v2.3M.9 10h2.3M16.8 10h2.3"/>
+        </svg>
+      </span>
+    </button>
+    <div class="zoom" id="zoom">
+      <button type="button" id="zoom-in" data-i18n-aria="zoom.in" aria-label="Zoom in">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M10 4v12M4 10h12"/></svg>
+      </button>
+      <button type="button" id="zoom-out" data-i18n-aria="zoom.out" aria-label="Zoom out">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M4 10h12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <p class="sr-only" id="live" role="status" aria-live="polite"></p>
+
+  <section class="sheet" id="sheet" aria-label="Results">
+    <button type="button" class="sheet-handle" id="sheet-handle" aria-expanded="false" aria-controls="sheet-body"></button>
+    <div class="sheet-body" id="sheet-body"></div>
+    <div class="stop-list" id="stop-list"></div>
+    <p class="sheet-foot" data-i18n="footer">Prototype data — check DOT before you travel</p>
+  </section>
+
+</div>
+
+<script src="src/datasets/copenhagen.js"></script>
+<script src="src/datasets/index.js"></script>
+<script src="src/dataset.js"></script>
+<script src="src/active.js"></script>
+<script src="src/engine.js"></script>
+<script src="src/i18n.js"></script>
+<script src="src/map.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
