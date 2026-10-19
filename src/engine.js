@@ -52,7 +52,7 @@ function buildGraph(modes) {
 /* A trip is priced on the DISTINCT zones it passes through, so the search
    minimises the set of zones visited (not the number of zone changes) and
    re-entering a zone you have already paid for is free. Dijkstra over
-   (stop, bitmask of visited zones) — 8 zones, so 256 masks per stop. */
+   (stop, set of visited zones). */
 /* The set of zones paid for so far, kept sorted so the same set always
    serialises to the same state key. A bitmask would be faster but caps the
    app at 31 zones, which a region-wide dataset would exceed. */

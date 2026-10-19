@@ -3,13 +3,17 @@
 A mobile-first web app showing which Copenhagen stops you can reach on a DOT
 zone ticket, and how many zones a trip costs.
 
-> ## ⚠️ The data in this app is invented
+> ## ⚠️ What this app knows, and what it doesn't
 >
-> The zones, the stop-to-zone assignments, which zones touch, the line
-> routings and the stop positions were all made up for this prototype. They
-> behave plausibly and are internally consistent, but **no fare this app
-> reports is correct**. It is a design and interaction prototype, not a travel
-> tool. Check [DOT](https://dinoffentligetransport.dk) before you travel.
+> The zone numbers, names and boundaries are DOT's real ones, and the stops
+> and line routings come from Rejseplanen's own feed — see
+> [Where the data comes from](#where-the-data-comes-from). Two limits remain.
+> It carries **part of the network**: the metro, the S-tog, two regional
+> services, the harbour buses and fourteen bus lines, cut where they leave the
+> 15 zones of the inner capital area — and because zone adjacency is derived
+> from those lines, reach in the outer zones is only as wide as the lines it
+> knows. And it answers in **zones, never in kroner**. Check
+> [DOT](https://dinoffentligetransport.dk) before you travel.
 
 No build step, no dependencies. Serve the folder with any static server:
 
@@ -28,17 +32,66 @@ state from the original brief is reachable like this:
 | # | State | How to get there |
 |---|---|---|
 | 1 | Reach, 2 zones from Nørreport | the opening state |
-| 2 | Reach, 3 zones | press **+** on the Ticket stepper |
+| 2 | Reach, 3 zones | press **+** on the Ticket stepper (2–7) |
 | 3 | Station search open | tap the **From** field |
-| 4 | Sheet expanded with stop list | tap **Show stops · 63 stops** |
+| 4 | Sheet expanded with stop list | tap **Show stops · 88 stops** |
 | 5 | "How many zones?" empty | switch tabs, clear **To** |
-| 6 | Nørreport → Lufthavnen = 3 zones | switch tabs, set **To** to Lufthavnen |
+| 6 | Nørreport → Lufthavnen = 3 zones | switch tabs, set **To** to Københavns Lufthavn |
 | 7 | Danish | tap **DA** |
 | 8 | Desktop | widen the window past 900px |
 
 Tapping a stop on the map sets the start (or the destination, once a start is
 set on tab 2). Drag to pan, scroll or use **+ / −** to zoom. The ⊕ button above
 the zoom controls starts from wherever you are.
+
+## Where the data comes from
+
+`src/datasets/copenhagen.js` is generated, not written. Two published sources
+feed it, and nothing in it is invented:
+
+| What | Source |
+|---|---|
+| zone numbers, names, boundaries | Movia's public ArcGIS layer `Hosted/Takstzoner` — the 211 DOT zones east of Storebælt, each polygon carrying its zone number |
+| stops, coordinates, line routings | the [Rejseplanen GTFS feed](https://www.rejseplanen.info/labs/GTFS.zip), all of Danish public transport |
+
+A stop's zone is the zone whose polygon its coordinates fall inside; a line's
+stops are the stops that line actually calls at. To rebuild:
+
+```bash
+python3 tools/build-dataset.py --gtfs path/to/unpacked-gtfs --zones path/to/takstzoner.geojson
+node tools/check-dataset.js
+```
+
+The generator (`tools/build-dataset.py`, no dependencies) carries the editorial
+decisions, and they are all it carries:
+
+- **Scope.** 15 zones — 1, 2, 3, 4, 30–33, 40–44, 51, 55 — and 28 lines, each
+  cut where it leaves them. Peak-only S-tog variants are left out; so is the
+  Ring 3 light rail, which would need a sixth mode.
+- **Which stops survive.** Every station on a rail, metro, regional or harbour
+  line. Of a bus line's stops, only those at a station, those that are the
+  first stop in a new zone, and the ends — enough to keep every zone boundary
+  the line crosses, without 400 roadside stops.
+- **One place, one stop.** The feed keeps the metro, S-tog and regional halves
+  of an interchange as separate stations (Nørreport is three). They are merged
+  into one stop carrying every mode.
+- **Running through a zone.** The RE passes Svanemøllen and Brøndbyøster
+  without calling there, which would invent an adjacency across them, so it is
+  given a stop at each — the rule below. Where no such stop is honest, the line
+  is cut instead; that happens once, to the 500S across Kalveboderne.
+- **Positions.** `x`/`y` is the real position projected into the map's box, and
+  `padding` samples each zone's real polygon so the blobs follow the real zone
+  shape. Presentation, not data: neither touches a fare.
+
+A handful of stations sit *on* a zone boundary, and DOT counts them as being
+in either zone — Hellerup is 2/30, Lyngby 41/51. A stop here has one zone, the
+one its coordinates fall in, so a trip starting at such a station can come out
+a zone dearer than DOT would sell it.
+
+Six boundaries that exist on the ground are missing from the derived graph
+(31–43, 32–42, 32–44, 33–43, 40–51, 43–55), because no line the dataset carries
+crosses them. Reach from those outer zones is therefore narrower than DOT's.
+The generator prints them on every run.
 
 ## Extending to more of the region
 
@@ -47,6 +100,8 @@ in `src/datasets/`, and covering more of Zealand is a data change:
 
 1. Copy `src/datasets/copenhagen.js` to `src/datasets/zealand.js`, give it a
    new `id`, and extend the four lists: `zones`, `stops`, `lines`, `padding`.
+   For this region, widen `SCOPE` in `tools/build-dataset.py` instead and
+   regenerate — the two sources above already cover all of Zealand.
 2. Add it to the `DATASETS` array in `src/datasets/index.js`.
 3. Add its `<script>` tag to `index.html`, next to the others.
 
@@ -107,23 +162,28 @@ makes that class of bug impossible to reintroduce.
 
 ### Deviation from the original brief
 
-The brief gave two worked examples. **Nørreport → Lufthavnen = 3 zones through
-1 → 3 → 4 holds.** The other does not: the brief showed a 2-zone ticket from
-Nørreport reaching *Zone 1 and Zone 2*; here it reaches *Zone 1, 2 and 3*.
+The brief gave two worked examples, and real data settles both.
 
-The two cannot both be true. Nørreport → Lufthavnen only costs 3 zones because
-zone 3 touches zone 1 across Amager; if zone 3 touches zone 1, a 2-zone ticket
-from zone 1 necessarily reaches it. **Decided: keep the derived adjacency**, on
-the grounds that a model which cannot contradict itself is worth more than
-matching an illustrative figure.
+**Nørreport → Lufthavnen = 3 zones through 1 → 3 → 4 holds**, exactly as the
+brief drew it.
+
+The other example does not, and now it is clear that it never could: the brief
+showed a 2-zone ticket from Nørreport reaching *Zone 1 and Zone 2*, where the
+app shows *Zone 1, 2 and 3*. Zone 1 and zone 3 really do share a boundary on
+Amager — the M2 crosses it between Lergravsparken and Øresund — so a 2-zone
+ticket bought in zone 1 is valid in zone 3, and the airport trip costs 3 zones
+for the same reason. The two halves of the brief's figure cannot both be true
+of Copenhagen. When this was an invented dataset the decision was to keep the
+derived adjacency over the illustration; the real zones agree with it.
 
 ## How the map is drawn
 
 The map is schematic, not geographic. Every stop emits a soft circular halo; an
 SVG goo filter (gaussian blur plus an alpha threshold) merges the halos of one
-zone into a single organic blob, so zone areas are derived from stop positions
-rather than drawn by hand. `padding` adds halo centres that carry no stop and
-only shape the blobs.
+zone into a single organic blob, so zone areas are drawn from point positions
+rather than by hand. `padding` adds halo centres that carry no stop and only
+shape the blobs — here they are sampled from the real zone polygons, so each
+blob follows the shape of the actual fare zone.
 
 Because most zones are rings, a zone's centroid falls inside the zone it wraps
 around. Zone numbers are placed instead at the halo centre farthest from every
@@ -144,8 +204,8 @@ but not from a `file://` page; the app says so rather than failing silently, and
 handles a denied permission, an unavailable fix, and being outside the region
 (beyond 60 km, where "nearest stop" stops being a useful answer).
 
-Each stop carries an **approximate** real `lat`/`lon` alongside its schematic
-`x`/`y` — accurate enough to pick the right neighbouring stop and nothing more.
+Each stop carries the real `lat`/`lon` of its station from the feed, alongside
+the schematic `x`/`y` the map draws it at.
 
 The user's position is deliberately **not** drawn on the map. The map is
 schematic, so there is no honest place to put a "you are here" dot. A position
@@ -192,6 +252,7 @@ src/engine.js                reach rings and route search (no DOM)
 src/i18n.js                  EN/DA copy
 src/map.js                   SVG map, camera, pins
 src/app.js                   state and view wiring
+tools/build-dataset.py       regenerates the dataset from open data
 tools/check-dataset.js       dataset and invariant checks
 figma-tokens.json            tokens for Figma variables
 ```
@@ -200,5 +261,7 @@ figma-tokens.json            tokens for Figma variables
 
 ## Not built
 
-Real DOT data, route suggestions ("take M2"), fare prices, persistence,
-offline support, live position tracking (location is read once per press).
+Fare prices in kroner, route suggestions ("take M2"), the rest of the network
+(the Ring 3 light rail would need a sixth mode; so would the local railways),
+the region beyond the inner capital zones, persistence, offline support, live
+position tracking (location is read once per press).
