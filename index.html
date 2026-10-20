@@ -155,12 +155,17 @@
     <button type="button" class="sheet-handle" id="sheet-handle" aria-expanded="false" aria-controls="sheet-body"></button>
     <div class="sheet-body" id="sheet-body"></div>
     <div class="stop-list" id="stop-list"></div>
-    <p class="sheet-foot" data-i18n="footer">Real DOT zones, part of the network — check DOT before you travel</p>
+    <p class="sheet-foot">
+      <span data-i18n="footer">Real DOT zones, part of the network — check DOT before you travel</span>
+      <span class="credit"><span data-i18n="credit.coast">Coastline</span>
+        © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></span>
+    </p>
   </section>
 
 </div>
 
 <script src="src/datasets/copenhagen.js"></script>
+<script src="src/datasets/copenhagen-water.js"></script>
 <script src="src/datasets/index.js"></script>
 <script src="src/dataset.js"></script>
 <script src="src/active.js"></script>

@@ -3,6 +3,8 @@
   --paper: #FCFBF8;
   --bg: #F3F1EC;
   --land: #EAE7E0;
+  --water: #DBE6EC;
+  --shore: #C4D5DD;
 
   --ink: #1F2633;
   --muted: #6B7280;
@@ -61,6 +63,16 @@ ul { margin: 0; padding: 0; list-style: none; }
 #map { display: block; width: 100%; height: 100%; cursor: grab; }
 #map.dragging { cursor: grabbing; }
 .map-overlay { position: absolute; inset: 0; pointer-events: none; }
+
+.sea { fill: var(--water); }
+.shore {
+  fill: none;
+  stroke: var(--shore);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+  opacity: .85;
+  pointer-events: none;
+}
 
 .stop-hit { fill: transparent; cursor: pointer; }
 .stop-mark { pointer-events: none; }
@@ -544,6 +556,9 @@ ul { margin: 0; padding: 0; list-style: none; }
 .empty { padding: 4px 0 8px; }
 .empty h2 { font-family: var(--font-display); font-weight: 800; font-size: 20px; margin: 0 0 4px; }
 .empty p { color: var(--muted); font-size: 14px; margin: 0; }
+
+.credit { display: block; margin-top: 2px; }
+.credit a { color: inherit; }
 
 .sheet-foot {
   flex: none;

@@ -93,7 +93,9 @@ const MapView = (function () {
   /* ---------- Static scaffolding ---------- */
   function buildStatic() {
     svg.innerHTML = [
+      '<g id="layer-water"></g>',
       '<g id="layer-zones"></g>',
+      '<g id="layer-shore"></g>',
       '<g id="layer-lines"></g>',
       '<g id="layer-route"></g>',
       '<g id="layer-stops"></g>',
@@ -102,6 +104,39 @@ const MapView = (function () {
   }
 
   /* ---------- Layers ---------- */
+  /* The shoreline is real, and fixed: drawn once, never touched again.
+     The sea is the map box with the landmasses punched out of it, so
+     anywhere outside the box stays neutral rather than pretending to be
+     water we have no data for. */
+  function drawWater() {
+    const layer = svg.querySelector("#layer-water");
+    const water = typeof WATER_COPENHAGEN === "undefined" ? null : WATER_COPENHAGEN;
+    if (!water || water.dataset !== DATA.id || !water.land) {
+      layer.innerHTML = "";
+      return;
+    }
+    const b = water.box;
+    const box = "M" + b[0] + " " + b[1] + "L" + b[2] + " " + b[1] +
+      "L" + b[2] + " " + b[3] + "L" + b[0] + " " + b[3] + "Z";
+    /* The landmasses are contoured past the box edge so they close properly,
+       so everything here is clipped back to the box: outside it there is no
+       shoreline data, and the page background stands in for open ground. */
+    layer.innerHTML =
+      '<clipPath id="water-clip"><rect x="' + b[0] + '" y="' + b[1] +
+      '" width="' + (b[2] - b[0]) + '" height="' + (b[3] - b[1]) + '"/></clipPath>' +
+      '<g clip-path="url(#water-clip)">' +
+      '<path class="sea" fill-rule="evenodd" d="' + box + water.land + '"/>' +
+      "</g>";
+
+    /* The shoreline is drawn over the zone fills rather than under them.
+       The zones cover most of the land, and it is the coast that makes the
+       map recognisable as Copenhagen — Amager and the harbour especially. */
+    svg.querySelector("#layer-shore").innerHTML =
+      '<g clip-path="url(#water-clip)">' +
+      '<path class="shore" d="' + water.land + '"/>' +
+      "</g>";
+  }
+
   /* Zone outlines are geometry, not state: they depend only on where the
      stops are, so they are contoured once and then only recoloured. This is
      what used to be a per-frame SVG filter over hundreds of circles. */
@@ -425,6 +460,7 @@ const MapView = (function () {
       overlay = overlayEl;
       onStopClick = stopClickHandler;
       buildStatic();
+      drawWater();
       setViewBox();
       bind();
     },

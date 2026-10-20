@@ -176,6 +176,42 @@ for the same reason. The two halves of the brief's figure cannot both be true
 of Copenhagen. When this was an invented dataset the decision was to keep the
 derived adjacency over the illustration; the real zones agree with it.
 
+## Coastline and water
+
+The map is schematic but geographically projected, so the shoreline can be
+real. `tools/build-water.py` bakes it into `src/datasets/copenhagen-water.js`
+as path data — the app gains no dependency and does no geometry at runtime.
+
+```bash
+python3 tools/build-water.py
+```
+
+It fetches the coastline and named water bodies from the Overpass API, then:
+
+1. Recovers the dataset's projection by fitting it to the stops, which carry
+   both `lat`/`lon` and `x`/`y`. The projection is linear, so this is exact
+   rather than a guess, and the water lines up with the network by
+   construction.
+2. Decides land by casting a ray east from every cell of a raster. The whole
+   eastern edge of the fetched area is in Øresund, so an odd number of
+   coastline crossings means the cell is inland. Lakes are then punched out.
+3. Contours the raster with marching squares, smooths and simplifies it.
+
+Two details matter if you regenerate it. The raster extends past the map box
+and is forced to water around its rim, because marching squares can only close
+a contour that stays inside the grid — without the margin, any landmass
+running off the edge comes back as an open fragment and the fill inverts. And
+the renderer clips the water layer back to the box, since outside it there is
+no shoreline data and the page background stands in for open ground.
+
+The sea is drawn as the box with the landmasses punched out, under the zone
+fills. The shoreline itself is stroked *over* them: the zones cover most of
+the land, and it is the coast — Amager and the harbour above all — that makes
+the map recognisable.
+
+OpenStreetMap data is © OpenStreetMap contributors, ODbL. The app credits this
+in its footer; keep that if you redistribute.
+
 ## How the map is drawn
 
 The map is schematic, not geographic. Every stop emits a soft circular halo; an
@@ -245,6 +281,7 @@ Bricolage Grotesque (600/800) for headings, numbers and zone labels; Figtree
 index.html                   structure
 styles.css                   tokens, layout, components
 src/datasets/copenhagen.js   the region: zones, stops, lines, blob padding
+src/datasets/copenhagen-water.js  coastline and lakes, as path data
 src/datasets/index.js        dataset registry and ?dataset= selection
 src/dataset.js               loader and validator (no DOM)
 src/active.js                binds the chosen dataset to the app
@@ -253,7 +290,9 @@ src/i18n.js                  EN/DA copy
 src/map.js                   SVG map, camera, pins
 src/app.js                   state and view wiring
 tools/build-dataset.py       regenerates the dataset from open data
+src/blobs.js                 contours the zone blobs (no DOM)
 tools/check-dataset.js       dataset and invariant checks
+tools/build-water.py         regenerates the coastline from OpenStreetMap
 figma-tokens.json            tokens for Figma variables
 ```
 
